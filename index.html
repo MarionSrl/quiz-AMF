@@ -39,7 +39,7 @@ const saveW=()=>{try{localStorage.setItem("amf_w",JSON.stringify(W))}catch(e){}}
 const app=document.getElementById("app");
 function h(t,a,...k){const e=document.createElement(t);for(const x in a||{})x==="class"?e.className=a[x]:x.startsWith("on")?e[x]=a[x]:a[x]===false||e.setAttribute(x,a[x]===true?"":a[x]);k.flat().forEach(c=>e.append(c));return e}
 const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
-const TH=[...new Set(D.map(x=>x.t))].sort((a,b)=>a-b);let Q=[],ans=[],i=0,cfg={n:30,a:18,mode:"new",th:TH};
+const TH=[...new Set(D.map(x=>x.t))].sort((a,b)=>a-b);let Q=[],ans=[],rev=[],i=0,cfg={n:30,a:18,mode:"new",th:TH,inst:true};
 function pick(cat,n,mode){
   let p=D.filter(x=>x.c===cat&&cfg.th.includes(x.t));
   if(mode==="err")p=p.filter(x=>H[x.id]===0);
@@ -55,15 +55,16 @@ function home(){
   [["new","Nouvelles d’abord"],["err","Mes erreurs"]].forEach(([v,t])=>sM.append(h("option",{value:v},t)));sM.value=cfg.mode;
   const inA=h("input",{type:"number",min:0,max:120,value:cfg.a,id:"ia"});
   const ths=TH.map(t=>{const cb=h("input",{type:"checkbox",style:"width:auto",value:t});cb.checked=cfg.th.includes(t);return cb});
+  const ci=h("input",{type:"checkbox",style:"width:auto"});ci.checked=cfg.inst;
   const readTh=()=>{const s=ths.filter(c=>c.checked).map(c=>+c.value);return s.length?s:TH};
   const thCard=h("div",{class:"card"},h("div",{class:"row",style:"justify-content:space-between"},h("b",{},"Thèmes"),h("span",{},h("button",{onclick:()=>ths.forEach(c=>c.checked=true)},"Tout")," ",h("button",{onclick:()=>ths.forEach(c=>c.checked=false)},"Aucun"))),h("div",{class:"row",style:"margin-top:10px"},...ths.map((cb,k)=>h("label",{style:"flex-direction:row;align-items:center;gap:6px;width:calc(50% - 6px);color:var(--tx)"},cb,`Thème ${TH[k]} (${D.filter(x=>x.t===TH[k]).length})`))),h("p",{class:"mut"},"Rien de coché = tous les thèmes."));
   app.append(h("h1",{},"Entraînement certificat AMF"),
    h("p",{class:"mut"},"Examen officiel : 120 questions (36 A + 84 C), il faut au moins 80 % à chaque type, sans compensation."),
    h("div",{class:"card"},h("div",{class:"row"},
-     h("label",{},"Nb. de questions",sN),h("label",{},"dont type A",inA),h("label",{},"Mode",sM)),
+     h("label",{},"Nb. de questions",sN),h("label",{},"dont type A",inA),h("label",{},"Mode",sM),h("label",{style:"flex-direction:row;align-items:center;gap:6px;color:var(--tx)"},ci,"Correction après chaque question")),
      h("p",{class:"mut"},"Le reste du quiz est composé de questions C. Les questions jamais vues passent en premier, puis celles ratées."),
-     h("button",{class:"p",onclick:()=>{cfg={n:+sN.value,a:Math.min(+inA.value,+sN.value),mode:sM.value,th:readTh()};start()}},"Lancer le quiz"),
-     " ",h("button",{onclick:()=>{cfg={n:120,a:36,mode:sM.value,th:readTh()};start()}},"Simulation examen (36 A + 84 C)")),
+     h("button",{class:"p",onclick:()=>{cfg={n:+sN.value,a:Math.min(+inA.value,+sN.value),mode:sM.value,th:readTh(),inst:ci.checked};start()}},"Lancer le quiz"),
+     " ",h("button",{onclick:()=>{cfg={n:120,a:36,mode:sM.value,th:readTh(),inst:ci.checked};start()}},"Simulation examen (36 A + 84 C)")),
    thCard,
    h("h2",{},"Ma progression"),
    h("div",{class:"card"},
@@ -97,7 +98,7 @@ function start(){
   const A=pick("A",cfg.a,cfg.mode),C=pick("C",cfg.n-cfg.a,cfg.mode);
   Q=shuf([...A,...C]);
   if(!Q.length){alert("Aucune question disponible pour ce mode.");return}
-  ans=Q.map(()=>null);i=0;quiz();
+  ans=Q.map(()=>null);rev=Q.map(()=>false);i=0;quiz();
 }
 function quiz(){
   app.replaceChildren();const q=Q[i];
@@ -105,12 +106,15 @@ function quiz(){
   app.append(h("div",{class:"row",style:"justify-content:space-between"},h("span",{class:"mut"},`Question ${i+1} / ${Q.length}`),h("button",{onclick:()=>{if(confirm("Abandonner ce quiz ?"))home()}},"Quitter")),
    h("div",{class:"bar"},h("i",{style:`width:${(i+1)/Q.length*100}%`})));
   const card=h("div",{class:"card"},h("p",{},h("span",{class:"tag"},"Type "+q.c),q.q));
-  q.o.forEach((t,k)=>card.append(h("button",{class:"opt"+(ans[i]===k?" sel":""),onclick:()=>{ans[i]=k;quiz()}},h("b",{},L[k]+". "),t)));
+  const R=cfg.inst&&rev[i],r=L.indexOf(q.r);
+  q.o.forEach((t,k)=>card.append(h("button",{class:"opt"+(R?(k===r?" ok":k===ans[i]?" ko":""):(ans[i]===k?" sel":"")),onclick:()=>{if(!R){ans[i]=k;quiz()}}},h("b",{},L[k]+". "),t,R?(k===r?" ✓":k===ans[i]?" ✗ (ta réponse)":""):"")));
+  if(R)card.append(h("p",{style:"font-weight:600;color:var(--"+(ans[i]===r?"ok":"ko")+")"},ans[i]===r?"✓ Bonne réponse":"✗ Mauvaise réponse"),h("div",{class:"just"},"Source : "+q.d));
   app.append(card,h("div",{class:"row"},
     h("button",{disabled:i===0,onclick:()=>{i--;quiz()}},"← Précédente"),
-    i<Q.length-1?h("button",{class:"p",onclick:()=>{i++;quiz()}},"Suivante →"):h("button",{class:"p",onclick:()=>{
+    i<Q.length-1?h("button",{class:"p",onclick:()=>{if(cfg.inst&&ans[i]!==null&&!rev[i]){rev[i]=true;quiz()}else{i++;quiz()}}},cfg.inst&&ans[i]!==null&&!rev[i]?"Voir la correction":"Question suivante →"):h("button",{class:"p",onclick:()=>{
       const m=ans.filter(x=>x===null).length;
-      if(m&&!confirm(m+" question(s) sans réponse. Terminer quand même ?"))return;result()}},"Terminer"),
+      if(cfg.inst&&ans[i]!==null&&!rev[i]){rev[i]=true;quiz();return}
+      if(m&&!confirm(m+" question(s) sans réponse. Terminer quand même ?"))return;result()}},cfg.inst&&ans[i]!==null&&!rev[i]?"Voir la correction":"Terminer"),
     h("span",{class:"mut"},`${done} répondue(s)`)));
 }
 function result(){
